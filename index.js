@@ -1,6 +1,5 @@
 const menubar = require('menubar')
 const { globalShortcut, shell, ipcMain } = require('electron')
-const config = require('./lib/config')
 const envPaths = require('env-paths')
 const fs = require('fs')
 const resolveFrom = require('resolve-from')
@@ -9,10 +8,13 @@ const path = require('path')
 const serialize = require('node-serialize')
 const { exec } = require('child_process')
 const random = require('randomstring')
+const config = require('./lib/config')
+
+require('electron-debug')({showDevTools: true});
 
 const mb = menubar({
   dir: 'app',
-  // icon: 'app/assets/images/icon.png',
+  icon: 'app/assets/icon.png',
   windowPosition: 'center',
   tooltip: 'Nodeshot',
   width: 600
@@ -22,7 +24,11 @@ const paths = envPaths('nodeshot')
 mb.on('ready', () => {
   const settings = config.get('settings')
 
-  registerShortcuts(settings['shortcut-area'], settings['shortcut-full'])
+  if (config.has('settings.shortcut.area') && config.has('settings.shortcut.full')) {
+    const shortcutArea = config.get('settings.shortcut.area')
+    const shortcutFull = config.get('settings.shortcut.full')
+    registerShortcuts(shortcutArea, shortcutFull)
+  }
 
   ipcMain.on('loadExternalURL', (e, arg) => {
     shell.openExternal(arg)
@@ -46,21 +52,31 @@ mb.on('ready', () => {
   })
 
   ipcMain.on('getSettings', (e, data) => {
-    e.returnValue = config.get('settings')
+    e.returnValue = config.get('settings') || {}
   })
   ipcMain.on('setSettings', (e, data) => {
     const prevSettings = config.get('settings')
-    globalShortcut.unregister(prevSettings['shortcut-area'])
-    globalShortcut.unregister(prevSettings['shortcut-full'])
-    config.set('settings', data)
-    registerShortcuts(data['shortcut-area'], data['shortcut-full'])
-    e.sender.send('receiveSettings', config.get('settings'))
+
+    if (config.has('settings.shortcut.area') && !!config.get('settings.shortcut.area'))
+      globalShortcut.unregister(config.get('settings.shortcut.area'))
+    if (config.has('settings.shortcut.full') && !!config.get('settings.shortcut.full'))
+      globalShortcut.unregister(config.get('settings.shortcut.full'))
+    config.set('settings', Object.assign(prevSettings, data))
+
+    const settings = config.get('settings')
+    const shortcuts = settings.shortcut || {}
+    const area = shortcuts.area || null
+    const full = shortcuts.area || null
+    registerShortcuts(area, full)
+
+    e.sender.send('receiveSettings', settings)
   })
   ipcMain.on('notify', (e, text) => notifier.notify(text))
 
 })
 
 function registerShortcuts(area, full) {
+  if (!config.has('settings.uploader')) return
   const uploader = config.get('settings').uploader
 
   if (area) {

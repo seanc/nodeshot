@@ -9,7 +9,7 @@ app.model({
     plugins: ipc.sendSync('getPlugins').map(plugin => {
       return serialize.unserialize(plugin)
     }),
-    settings: ipc.sendSync('getSettings')
+    settings: ipc.sendSync('getSettings') || {}
   },
   reducers: {
     addPlugin: (state, data) => {
@@ -29,19 +29,17 @@ app.model({
       })
     },
     getSettings: (state, data, send, done) => {
-      ipc.on('receiveSettings', (e, settings) => {
-
-        send('setSettings', settings, (err, value) => {
-          if (err) return done(err)
-          done(null, value)
-        })
+      send('setSettings', settings, (err, value) => {
+        if (err) return done(err)
+        done(null, ipc.sendSync('getSettings'))
       })
     }
   }
 })
 
 app.router({ default: '/' }, [
-  ['/', require('./views/settings')]
+  ['/', require('./views/settings')],
+  ['/:plugin/settings', require('./views/plugin')]
 ])
 
 const tree = app.start()
