@@ -1,5 +1,5 @@
 const html = require('choo/html')
-const ipc = require('electron').ipcRenderer;
+const ipc = require('electron').ipcRenderer
 const getFormData = require('get-form-data')
 
 function settingsView (state, prev, send) {
